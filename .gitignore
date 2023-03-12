@@ -1,0 +1,6 @@
+venv
+__pycache__
+bot/__pycache__
+to_do.py
+.DS_Store
+.idea/
