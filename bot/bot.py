@@ -42,28 +42,35 @@ async def enter_write_weight(message: types.Message):
     Requesting for writing weight
     """
     await WeightState.weight.set()
-    await message.answer('Введите свой вес (десятичные разделитель - точка)', reply_markup=types.ReplyKeyboardRemove())
+    await message.answer('Введите свой вес в кг (десятичные разделитель - точка)',
+                         reply_markup=types.ReplyKeyboardRemove())
 
 
-# get user's weight for the date
 @dp.message_handler(state=WeightState.weight)
 async def get_weight_from_user(message: types.Message, state: FSMContext):
     """
     Get response from user (weight)
     """
 
-    # saving message id, for deleting these messages later
+    # saving message id, for deleting unnecessary messages later
     msg_id = message.message_id
     await state.update_data(msg_id=msg_id)
 
     try:
-        weight = message.text.strip()
-        weight = '%.2f' % float(weight)
-        await state.update_data(weight=weight)
+        weight = float(message.text.strip())
+        limit_weight = 250
+        if weight < limit_weight:
+            weight = '%.2f' % weight
+            await state.update_data(weight=weight)
 
-        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Да').add('Нет')
-        await message.answer(f'Хотите внести {weight} в базу данных?', reply_markup=keyboard)
-        await WeightState.next()
+            keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Да').add('Нет')
+            await message.answer(f'Хотите внести {weight} в базу данных?', reply_markup=keyboard)
+            await WeightState.next()
+        else:
+            keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Функции')
+            await message.answer('❌ Введено некорректное значение веса.\nПопробуйте еще раз.', reply_markup=keyboard)
+            await state.finish()
+
     except Exception:
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Функции')
         await message.answer('❌ Введено некорректное значение веса.\nПопробуйте еще раз.', reply_markup=keyboard)
@@ -75,7 +82,7 @@ async def get_weight_from_user(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(state=WeightState._continue)
-async def write_weigt_to_db(message: types.Message, state: FSMContext):
+async def write_weight_to_db(message: types.Message, state: FSMContext):
     """
     Check if the user wants to continue writing his weight into db
     """
@@ -129,6 +136,9 @@ async def show_categories(message: types.Message):
 
 @dp.message_handler(state=ProductState.category)
 async def get_products_category(message: types.Message, state: FSMContext):
+    """
+    Saving product_category and offering to choose a product
+    """
     category = message.text
     msg_id = message.message_id
     state_data = await state.get_data()
@@ -164,6 +174,9 @@ async def get_products_category(message: types.Message, state: FSMContext):
 
 @dp.message_handler(state=ProductState.product)
 async def get_product_name(message: types.Message, state: FSMContext):
+    """
+    Saving product name and offering to write grams of eaten product
+    """
     product_name = message.text
 
     with open('bot/proteins_data.json', 'r', encoding='utf-8') as file:
@@ -200,21 +213,41 @@ async def get_product_name(message: types.Message, state: FSMContext):
 
 @dp.message_handler(state=ProductState.product_weight)
 async def get_product_weight(message: types.Message, state: FSMContext):
+    """
+    Saving product weight and asking if a user wants to write this product to database
+    """
     product_weight = message.text.strip()
     state_data = await state.get_data()
     product_name = state_data.get('product_name')
     msg_id = state_data.get('msg_id')
     repeat = state_data.get('repeat')
+    limit_products_weight = 2000
 
     try:
-        product_weight = '%.1f' % float(product_weight)
-        await state.update_data(product_weight=product_weight)
+        product_weight = float(product_weight)
+        if product_weight < limit_products_weight:
+            product_weight = '%.1f' % product_weight
+            await state.update_data(product_weight=product_weight)
 
-        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Да').add('Нет')
-        await message.answer(f'Хотите записать \'{product_name}\' с весом {product_weight} грамм в базу данных?',
-                             reply_markup=keyboard)
+            keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Да').add('Нет')
+            await message.answer(f'Хотите записать \'{product_name}\' с весом {product_weight} грамм в базу данных?',
+                                 reply_markup=keyboard)
+            await ProductState.next()
+        # if there is an impossible product weight that couldn't have been eaten
+        else:
+            keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Функции')
+            await message.answer('❌ Введено некорректное значение массы продукта. \nПопробуйте еще раз.',
+                                 reply_markup=keyboard)
+            if repeat:
+                await message.answer('✅ Прием пищи сохранен.', reply_markup=keyboard)
+            await state.finish()
 
-        await ProductState.next()
+            # delete unnecessary messages
+            time.sleep(2)
+            if not repeat:
+                await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-4, -1)))
+            await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-1, 5)))
+
     except Exception:
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Функции')
         await message.answer('❌ Введено некорректное значение массы продукта. \nПопробуйте еще раз.',
@@ -232,12 +265,15 @@ async def get_product_weight(message: types.Message, state: FSMContext):
 
 @dp.message_handler(state=ProductState._continue)
 async def write_product_weight_to_db(message: types.Message, state: FSMContext):
+    """
+    Writing to db and asking if a user wants to write more product to the meal
+    """
     answer = message.text
     state_data = await state.get_data()
     repeat = state_data.get('repeat')
 
     if answer == 'Да':
-        """Записать в бд"""
+        # write to db
 
         product_category = state_data.get('category')
         product_name = state_data.get('product_name')
@@ -295,6 +331,9 @@ async def write_product_weight_to_db(message: types.Message, state: FSMContext):
 
 @dp.message_handler(state=ProductState.repeat)
 async def write_more_product_for_meal(message: types.Message, state: FSMContext):
+    """
+    If received yes, state will be set to category and this whole form will appear again
+    """
     write_more_product_to_meal = message.text
     msg_id = message.message_id
 
@@ -334,12 +373,18 @@ async def send_motivational_photo(message: types.Message):
 
 @dp.message_handler(Text(equals='Выгрузить данные'))
 async def get_data_from_db(message: types.Message):
+    """
+    Asking what data table a user wants
+    """
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Данные о приемах пищи').insert('Данные о весе')
     await message.answer('<b>Выберите, какие данные вы хотите выгрузить</b>', reply_markup=keyboard)
 
 
 @dp.message_handler(Text(equals='Данные о весе'))
 async def get_weights_data_from_db(message: types.Message):
+    """
+    Sending user's weight data
+    """
     user_id = message.from_user.id
     date_day = date.today()
     msg_id = message.message_id
@@ -367,6 +412,9 @@ async def get_weights_data_from_db(message: types.Message):
 
 @dp.message_handler(Text(equals='Данные о приемах пищи'))
 async def get_proteins_data_from_db(message: types.Message):
+    """
+    Sending user's proteins (meals) data
+    """
     user_id = message.from_user.id
     date_day = date.today()
     msg_id = message.message_id
@@ -393,6 +441,9 @@ async def get_proteins_data_from_db(message: types.Message):
 
 
 async def delete_messages(message, msg_id,  int_range: list):
+    """
+    Function for deleting unnecessary messages
+    """
     for number in int_range:
         await bot.delete_message(chat_id=message.chat.id, message_id=msg_id + number)
 
