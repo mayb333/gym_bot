@@ -12,3 +12,7 @@ class ProductState(StatesGroup):
     product_weight = State()
     _continue = State()
     repeat = State()
+
+
+class SendingDataState(StatesGroup):
+    table = State()

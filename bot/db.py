@@ -102,7 +102,7 @@ class DataBase:
     def import_from_weights_sql_to_csv(self, user_id, date):
         try:
             connection = self.connect_to_db()
-            csv_path = f'users_csv_data/weights_data_{user_id}_{date}.csv'
+            csv_path = f'bot/users_csv_data/weights_data_{user_id}_{date}.csv'
 
             with connection.cursor() as cursor:
                 query = f"""SELECT date, weight
@@ -137,13 +137,13 @@ class DataBase:
                 return 'No data found'
 
         except Exception as exp:
-            print(f'[!] Couldn\'t commit the function "import_from_weights_sql_to_csv"\n', exp.with_traceback())
+            print(f'[!] Couldn\'t commit the function "import_from_weights_sql_to_csv"\n', exp)
             return 'Problem occurred'
 
     def import_from_proteins_sql_to_csv(self, user_id, date):
         try:
             connection = self.connect_to_db()
-            csv_path = f'users_csv_data/proteins_data_{user_id}_{date}.csv'
+            csv_path = f'bot/users_csv_data/proteins_data_{user_id}_{date}.csv'
 
             with connection.cursor() as cursor:
                 query = f"""SELECT date, meal_id, meal_name, grams, proteins
@@ -178,7 +178,7 @@ class DataBase:
                 return 'No data found'
 
         except Exception as exp:
-            print(f'[!] Couldn\'t commit the function "import_from_proteins_sql_to_csv"\n', exp.with_traceback())
+            print(f'[!] Couldn\'t commit the function "import_from_proteins_sql_to_csv"\n', exp)
             return 'Problem occurred'
 
     def create_weights_table(self):
