@@ -165,7 +165,7 @@ async def get_products_category(message: types.Message, state: FSMContext):
         await state.update_data(category=category)
         await state.update_data(msg_id=msg_id)
 
-        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('🚫 Отмена')
+        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('↩️ Назад').insert('🚫 Отмена')
         for i, item in enumerate(products_data[category]):
             product_name = item['название']
             if i % 2 == 0:
@@ -216,26 +216,47 @@ async def get_product_name(message: types.Message, state: FSMContext):
 
     if product_is_in_products_data:
         await state.update_data(product_name=product_name)
-        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('🚫 Отмена')
+        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('↩️ Назад').insert('🚫 Отмена')
         await message.answer('Введите количество употребленных грамм <u>(десятичный разделитель - точка)</u>',
                              reply_markup=keyboard)
         await ProductState.next()
+
     else:
-        if product_name == '🚫 Отмена':
-            message_to_send = '🚫 Запись продукта была отменена.'
-        else:
-            message_to_send = '❌ Введено неверное название продукта. \nПопробуйте еще раз.'
-        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Функции')
-        await message.answer(message_to_send, reply_markup=keyboard)
-        if repeat:
-            await message.answer('✅ Прием пищи сохранен.', reply_markup=keyboard)
-        await state.finish()
+        if product_name == '🚫 Отмена' or (product_name != '🚫 Отмена' and product_name != '↩️ Назад'):
+            if product_name == '🚫 Отмена':
+                message_to_send = '🚫 Запись продукта была отменена.'
+            else:
+                message_to_send = '❌ Введено неверное название продукта. \nПопробуйте еще раз.'
+
+            keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Функции')
+            await message.answer(message_to_send, reply_markup=keyboard)
+            if repeat:
+                await message.answer('✅ Прием пищи сохранен.', reply_markup=keyboard)
+            await state.finish()
+        elif product_name == '↩️ Назад':
+            with open('bot/proteins_data.json', 'r', encoding='utf-8') as file:
+                products_data = json.load(file)
+
+            keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('🚫 Отмена')
+            categories = products_data.keys()
+            for i, category in enumerate(categories):
+                if i % 2 == 0:
+                    keyboard.row(category)
+                else:
+                    keyboard.insert(category)
+
+            await ProductState.category.set()
+            await message.answer('Выберите категорию', reply_markup=keyboard)
 
         # delete unnecessary messages
-        time.sleep(2)
-        if not repeat:
-            await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-4, -1)))
-        await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-1, 3)))
+        try:
+            time.sleep(2)
+            if not repeat:
+                await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-4, -1)))
+            await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-1, 3)))
+        except Exception:
+            msg_id = message.message_id
+            await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-3, 1)))
 
 
 @dp.message_handler(state=ProductState.product_weight)
@@ -246,51 +267,67 @@ async def get_product_weight(message: types.Message, state: FSMContext):
     message_text = message.text.strip()
     state_data = await state.get_data()
     product_name = state_data.get('product_name')
+    category = state_data.get('category')
     msg_id = state_data.get('msg_id')
     repeat = state_data.get('repeat')
     limit_products_weight = 2000
 
-    if message_text == '🚫 Отмена':
-        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Функции')
-        await message.answer('🚫 Запись продукта была отменена.', reply_markup=keyboard)
+    # if message_text == '🚫 Отмена':
+    #     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Функции')
+    #     await message.answer('🚫 Запись продукта была отменена.', reply_markup=keyboard)
+    #
+    #     if repeat:
+    #         await message.answer('✅ Прием пищи сохранен.', reply_markup=keyboard)
+    #     await state.finish()
+    #
+    # else:
+    try:
+        product_weight = float(message_text)
+        if product_weight < limit_products_weight:
+            product_weight = '%.1f' % product_weight
+            await state.update_data(product_weight=product_weight)
 
-        if repeat:
-            await message.answer('✅ Прием пищи сохранен.', reply_markup=keyboard)
-        await state.finish()
+            keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Да').insert('Нет')
+            await message.answer(f'❓ Хотите записать \'{product_name}\' с весом {product_weight} грамм в базу '
+                                 f'данных?', reply_markup=keyboard)
+            await ProductState.next()
+        # if there is an impossible product weight that couldn't have been eaten
+        else:
+            keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Функции')
+            await message.answer('❌ Введено некорректное значение массы продукта. \nПопробуйте еще раз.',
+                                 reply_markup=keyboard)
+            if repeat:
+                await message.answer('✅ Прием пищи сохранен.', reply_markup=keyboard)
+            await state.finish()
+    # If there is no float message
+    except Exception:
+        if message_text == '🚫 Отмена':
+            keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Функции')
+            await message.answer('🚫 Запись продукта была отменена.', reply_markup=keyboard)
 
-        # delete unnecessary messages
-        time.sleep(2)
-        if not repeat:
-            await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-4, -1)))
-        await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-1, 5)))
+            if repeat:
+                await message.answer('✅ Прием пищи сохранен.', reply_markup=keyboard)
+            await state.finish()
 
-    else:
-        try:
-            product_weight = float(message_text)
-            if product_weight < limit_products_weight:
-                product_weight = '%.1f' % product_weight
-                await state.update_data(product_weight=product_weight)
+        elif message_text == '↩️ Назад':
+            with open('bot/proteins_data.json', 'r', encoding='utf-8') as file:
+                products_data = json.load(file)
+            categories = products_data.keys()
+            if category in categories:
+                await state.update_data(category=category)
+                await state.update_data(msg_id=msg_id)
 
-                keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Да').insert('Нет')
-                await message.answer(f'❓ Хотите записать \'{product_name}\' с весом {product_weight} грамм в базу '
-                                     f'данных?', reply_markup=keyboard)
-                await ProductState.next()
-            # if there is an impossible product weight that couldn't have been eaten
-            else:
-                keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Функции')
-                await message.answer('❌ Введено некорректное значение массы продукта. \nПопробуйте еще раз.',
-                                     reply_markup=keyboard)
-                if repeat:
-                    await message.answer('✅ Прием пищи сохранен.', reply_markup=keyboard)
-                await state.finish()
+                keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('↩️ Назад').insert('🚫 Отмена')
+                for i, item in enumerate(products_data[category]):
+                    product_name = item['название']
+                    if i % 2 == 0:
+                        keyboard.row(product_name)
+                    else:
+                        keyboard.insert(product_name)
 
-                # delete unnecessary messages
-                time.sleep(2)
-                if not repeat:
-                    await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-4, -1)))
-                await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-1, 5)))
-
-        except Exception:
+                await message.answer('Выберите продукт', reply_markup=keyboard)
+                await ProductState.product.set()
+        else:
             keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Функции')
             await message.answer('❌ Введено некорректное значение массы продукта. \nПопробуйте еще раз.',
                                  reply_markup=keyboard)
@@ -298,11 +335,10 @@ async def get_product_weight(message: types.Message, state: FSMContext):
                 await message.answer('✅ Прием пищи сохранен.', reply_markup=keyboard)
             await state.finish()
 
-            # delete unnecessary messages
-            time.sleep(2)
-            if not repeat:
-                await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-4, -1)))
-            await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-1, 5)))
+        # delete unnecessary messages
+        time.sleep(2)
+        msg_id = message.message_id
+        await delete_messages(message, msg_id=msg_id, int_range=list(range(-3, 1)))
 
 
 @dp.message_handler(state=ProductState._continue)
@@ -365,9 +401,12 @@ async def write_product_weight_to_db(message: types.Message, state: FSMContext):
     # delete unnecessary messages
     msg_id = state_data.get('msg_id')
     time.sleep(2)
-    if not repeat:
-        await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-4, -1)))
-    await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-1, 7)))
+    try:
+        if not repeat:
+            await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-4, -1)))
+        await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-1, 7)))
+    except Exception:
+        print('[INFO] Couldn\'t delete messages')
 
 
 @dp.message_handler(state=ProductState.repeat)
