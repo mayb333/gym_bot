@@ -441,17 +441,17 @@ async def write_more_product_for_meal(message: types.Message, state: FSMContext)
         await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-1, 1)))
 
 
-@dp.message_handler(Text(equals='Мотивирующее фото'))
-async def send_motivational_photo(message: types.Message):
-    msg_id = message.message_id
-    number = random.randint(1, 4)
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Функции')
-    with open(f'bot/photos/mem_{number}.jpg', 'rb') as photo:
-        await bot.send_photo(chat_id=message.chat.id, photo=photo, reply_markup=keyboard)
-
-    # delete unnecessary messages
-    time.sleep(2)
-    await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-2, 0)))
+# @dp.message_handler(Text(equals='Мотивирующее фото'))
+# async def send_motivational_photo(message: types.Message):
+#     msg_id = message.message_id
+#     number = random.randint(1, 4)
+#     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Функции')
+#     with open(f'bot/photos/mem_{number}.jpg', 'rb') as photo:
+#         await bot.send_photo(chat_id=message.chat.id, photo=photo, reply_markup=keyboard)
+#
+#     # delete unnecessary messages
+#     time.sleep(2)
+#     await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-2, 0)))
 
 
 @dp.message_handler(Text(equals='Выгрузить данные'), state=None)
