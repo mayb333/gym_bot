@@ -32,7 +32,7 @@ async def start(message: types.Message):
 @dp.message_handler(Text(equals='Функции'))
 async def show_functions(message: types.Message):
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Записать вес').insert('Записать прием пищи') \
-                                                                .row('Выгрузить данные').insert('Мотивирующее фото')
+                                                                .row('Выгрузить данные')
     await message.answer('<b>Выберите фунцию </b>', reply_markup=keyboard)
 
 
@@ -363,13 +363,17 @@ async def write_product_weight_to_db(message: types.Message, state: FSMContext):
         with open('bot/proteins_data.json', 'r', encoding='utf-8') as file:
             products_data = json.load(file)
 
-        proteins_per_100_grams = 0
+        proteins_per_100_grams, carbs_per_100_grams, fats_per_100_grams = 0, 0, 0
         for item in products_data[product_category]:
             if item['название'] == product_name:
                 proteins_per_100_grams = float(item['белки'])
+                carbs_per_100_grams = float(item['белки'])
+                fats_per_100_grams = float(item['белки'])
 
-        product_proteins = product_weight * proteins_per_100_grams / 100
-        product_proteins = '%.1f' % product_proteins
+        product_proteins = '%.1f' % (product_weight * proteins_per_100_grams / 100)
+        product_carbs = '%.1f' % (product_weight * carbs_per_100_grams / 100)
+        product_fats = '%.1f' % (product_weight * fats_per_100_grams / 100)
+
         meal_id = db.set_meal_id(date_day, user_id)
 
         if repeat:
@@ -379,15 +383,17 @@ async def write_product_weight_to_db(message: types.Message, state: FSMContext):
             This means that we need to add product to the same meal_id as the previous product has
             """
             db.write_to_proteins(date=date_day, datetime=datetime_day, user_id=user_id, meal_id=meal_id,
-                                 meal_name=product_name, grams=product_weight, proteins=product_proteins)
+                                 meal_name=product_name, grams=product_weight, proteins=product_proteins,
+                                 carbs=product_carbs, fats=product_fats)
         else:
             meal_id += 1
             db.write_to_proteins(date=date_day, datetime=datetime_day, user_id=user_id, meal_id=meal_id,
-                                 meal_name=product_name, grams=product_weight, proteins=product_proteins)
+                                 meal_name=product_name, grams=product_weight, proteins=product_proteins,
+                                 carbs=product_carbs, fats=product_fats)
 
         await message.answer(f'✅ Продукт {product_name} с {product_proteins} г белка весом {product_weight} г '
                              f'<b> успешно записан в бд! </b>')
-        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Да').add('Нет')
+        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Да').insert('Нет')
         await message.answer('❓ Хотите записать еще продукт в этот прием пищи?', reply_markup=keyboard)
         await ProductState.next()
 
@@ -439,19 +445,6 @@ async def write_more_product_for_meal(message: types.Message, state: FSMContext)
         # delete unnecessary messages
         time.sleep(2)
         await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-1, 1)))
-
-
-# @dp.message_handler(Text(equals='Мотивирующее фото'))
-# async def send_motivational_photo(message: types.Message):
-#     msg_id = message.message_id
-#     number = random.randint(1, 4)
-#     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add('Функции')
-#     with open(f'bot/photos/mem_{number}.jpg', 'rb') as photo:
-#         await bot.send_photo(chat_id=message.chat.id, photo=photo, reply_markup=keyboard)
-#
-#     # delete unnecessary messages
-#     time.sleep(2)
-#     await delete_messages(message=message, msg_id=msg_id, int_range=list(range(-2, 0)))
 
 
 @dp.message_handler(Text(equals='Выгрузить данные'), state=None)
