@@ -58,14 +58,15 @@ class DataBase:
         except Exception as exp:
             print('[!] Couldn\'t commit the function "write_to_weights"\n', exp)
 
-    def write_to_proteins(self, date, datetime, user_id, meal_id, meal_name, grams, proteins):
+    def write_to_proteins(self, date, datetime, user_id, meal_id, meal_name, grams, proteins, carbs, fats):
         try:
             connection = self.connect_to_db()
 
             with connection.cursor() as cursor:
-                query = f"""INSERT INTO proteins (date, datetime, user_id, meal_id, meal_name, grams, proteins) 
-                                          VALUES('{date}', '{datetime}', '{user_id}', '{meal_id}', '{meal_name}', 
-                                          '{grams}', '{proteins}')"""
+                query = f"""INSERT INTO proteins 
+                                (date, datetime, user_id, meal_id, meal_name, grams, proteins, carbs, fats) 
+                            VALUES('{date}', '{datetime}', '{user_id}', '{meal_id}', '{meal_name}', 
+                                          '{grams}', '{proteins}', '{carbs}', '{fats}')"""
 
                 cursor.execute(query)
 
@@ -146,7 +147,7 @@ class DataBase:
             csv_path = f'bot/users_csv_data/proteins_data_{user_id}_{date}.csv'
 
             with connection.cursor() as cursor:
-                query = f"""SELECT date, meal_id, meal_name, grams, proteins
+                query = f"""SELECT date, meal_id, meal_name, grams, proteins, carbs, fats
                             FROM proteins
                             WHERE user_id = '{user_id}'"""
 
@@ -210,7 +211,9 @@ class DataBase:
                         meal_id varchar(10) NOT NULL,
                         meal_name varchar(50) NOT NULL,
                         grams varchar(50) NOT NULL,
-                        proteins varchar(50) NOT NULL);""")
+                        proteins varchar(50) NOT NULL,
+                        carbs varchar(50) NOT NULL,
+                        fats varchar(50) NOT NULL);""")
                 connection.commit()
                 print('[INFO] Table "proteins" created')
 
@@ -226,7 +229,7 @@ def main():
     # database.import_from_weights_sql_to_csv('961372820222', '2023-03-11')
     # kek = database.import_from_proteins_sql_to_csv('872800942', '2023-03-11')
     # database.create_proteins_table()
-    # database.write_to_proteins('2023-01-02', 'lol', '08', '2', 'cheburek', '200', '20')
+    # database.write_to_proteins('2023-01-02', 'lol', '08', '2', 'cheburek', '200', '20', '211', '111')
     # print(database.set_meal_id('2023-01-02', '08'))
     # database.set_meal_id('2023-01-02', '084')
 
